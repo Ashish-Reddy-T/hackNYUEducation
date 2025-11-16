@@ -50,6 +50,8 @@ export class WSClient {
           console.log('[Agora] WebSocket connected, socket ID:', this.socket?.id);
           clearTimeout(timeout);
           this.reconnectAttempts = 0;
+          // Emit internal event for tracking
+          this.emit('connect', {});
           this.emit('connection_status', { connected: true });
           resolve();
         });
@@ -121,8 +123,8 @@ export class WSClient {
 
     try {
       const base64 = await this.blobToBase64(blob);
-      this.socket.emit('audio', {
-        type: 'audio',
+      this.socket.emit('audio_input', {
+        type: 'audio_input',
         session_id: this.config.sessionId,
         user_id: this.config.userId,
         format: 'audio/webm',
@@ -139,8 +141,8 @@ export class WSClient {
       throw new Error('WebSocket not connected');
     }
 
-    this.socket.emit('text', {
-      type: 'text',
+    this.socket.emit('text_input', {
+      type: 'text_input',
       session_id: this.config.sessionId,
       user_id: this.config.userId,
       text,

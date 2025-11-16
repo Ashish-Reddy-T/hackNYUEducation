@@ -161,24 +161,38 @@ class ElevenLabsTTS(TTSEngine):
 
 
 class PiperTTS(TTSEngine):
-    """Local Piper TTS implementation (placeholder)."""
+    """Local Piper TTS implementation using pyttsx3."""
     
     def __init__(self):
         """Initialize Piper TTS."""
-        self.model = None
+        self.engine = None
         
         logger.debug("PiperTTS instantiated")
     
     async def initialize(self) -> None:
-        """Initialize Piper model."""
+        """Initialize Piper/pyttsx3 engine."""
         try:
-            logger.debug("Initializing Piper TTS...")
+            logger.debug("Initializing Piper TTS (pyttsx3)...")
             
-            # TODO: Implement Piper TTS initialization
-            # This is a placeholder for local TTS fallback
+            import pyttsx3
             
-            logger.warning("Piper TTS not implemented yet, using placeholder")
-            logger.info("Piper TTS initialized (placeholder)")
+            self.engine = pyttsx3.init()
+            
+            # Configure voice properties
+            self.engine.setProperty('rate', 175)  # Speed
+            self.engine.setProperty('volume', 1.0)  # Volume
+            
+            # Try to set a better voice if available
+            voices = self.engine.getProperty('voices')
+            if voices:
+                # Prefer a female voice for tutor
+                for voice in voices:
+                    if 'female' in voice.name.lower() or 'samantha' in voice.name.lower():
+                        self.engine.setProperty('voice', voice.id)
+                        logger.debug(f"Using voice: {voice.name}")
+                        break
+            
+            logger.info("Piper TTS (pyttsx3) initialized successfully")
             
         except Exception as e:
             logger.error("Failed to initialize Piper", extra={
@@ -189,7 +203,7 @@ class PiperTTS(TTSEngine):
     
     async def synthesize(self, text: str) -> bytes:
         """
-        Synthesize speech using Piper.
+        Synthesize speech using pyttsx3.
         
         Args:
             text: Text to synthesize
@@ -198,16 +212,43 @@ class PiperTTS(TTSEngine):
             Audio bytes (WAV)
         """
         try:
-            logger.debug("Synthesizing with Piper", extra={
+            logger.debug("Synthesizing with Piper (pyttsx3)", extra={
                 "text_length": len(text)
             })
             
-            # TODO: Implement Piper synthesis
-            # For now, return empty bytes
+            if not self.engine:
+                raise RuntimeError("Piper engine not initialized")
             
-            logger.warning("Piper TTS not implemented, returning empty audio")
+            # Save to temporary WAV file
+            import tempfile
+            import os
             
-            return b""
+            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
+                temp_path = temp_file.name
+            
+            logger.debug(f"Saving audio to: {temp_path}")
+            
+            try:
+                # Generate speech to file
+                self.engine.save_to_file(text, temp_path)
+                self.engine.runAndWait()
+                
+                # Read the audio file
+                with open(temp_path, 'rb') as f:
+                    audio_data = f.read()
+                
+                logger.info("Piper synthesis completed", extra={
+                    "text_length": len(text),
+                    "audio_size": len(audio_data)
+                })
+                
+                return audio_data
+                
+            finally:
+                # Cleanup temp file
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+                    logger.debug(f"Temp file deleted: {temp_path}")
             
         except Exception as e:
             logger.error("Piper synthesis failed", extra={
@@ -217,10 +258,15 @@ class PiperTTS(TTSEngine):
             raise
     
     async def close(self) -> None:
-        """Close Piper model."""
-        logger.debug("Closing Piper model...")
-        self.model = None
-        logger.info("Piper model closed")
+        """Close Piper engine."""
+        logger.debug("Closing Piper engine...")
+        if self.engine:
+            try:
+                self.engine.stop()
+            except:
+                pass
+        self.engine = None
+        logger.info("Piper engine closed")
 
 
 # Factory function
@@ -249,15 +295,21 @@ def get_tts_service() -> TTSEngine:
 
 # Global singleton
 _tts_service: Optional[TTSEngine] = None
+_tts_initialized: bool = False
 
 
-def get_global_tts() -> TTSEngine:
+async def get_global_tts() -> TTSEngine:
     """Get or create global TTS service instance."""
-    global _tts_service
+    global _tts_service, _tts_initialized
     
     if _tts_service is None:
         logger.debug("Creating global TTS service...")
         _tts_service = get_tts_service()
+    
+    if not _tts_initialized:
+        logger.debug("Initializing global TTS service...")
+        await _tts_service.initialize()
+        _tts_initialized = True
     
     return _tts_service
 

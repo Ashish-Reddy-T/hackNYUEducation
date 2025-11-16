@@ -15,14 +15,15 @@ from app.graph.state import create_initial_state, TutorState
 from app.graph.builder import process_user_input
 from app.services.stt_service import get_global_stt
 from app.services.tts_service import get_global_tts
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 # Create Socket.IO server
-# Note: python-socketio 5.10.x uses Engine.IO 4.x protocol (EIO=4)
-# Compatible with socket.io-client 4.x (frontend uses 4.8.1)
+# Note: python-socketio 5.x uses Engine.IO 5.x protocol
+# Client must use socket.io-client 4.x or 5.x compatible version
 sio = socketio.AsyncServer(
     async_mode='asgi',
     cors_allowed_origins=['http://localhost:3000', 'http://localhost:5173', '*'],
@@ -43,7 +44,7 @@ active_sessions: Dict[str, TutorState] = {}
 async def connect(sid, environ, auth):
     """Handle client connection."""
     logger.info("=" * 80)
-    logger.info("SOCKET.IO CONNECTION REQUEST")
+    logger.info("SOCKET.IO CONNECTION ESTABLISHED")
     logger.info("=" * 80)
     logger.info("Client connected", extra={
         "sid": sid,
@@ -68,12 +69,9 @@ async def connect(sid, environ, auth):
         "session_id": session_id
     })
     
-    # Send connection confirmation
-    await sio.emit('connect', {
-        'status': 'connected',
-        'session_id': session_id,
-        'message': 'Connected to Agora'
-    }, to=sid)
+    # DON'T emit 'connect' - it's a reserved Socket.IO event
+    # Client will receive the built-in 'connect' event automatically
+    logger.info("Ready for messages", extra={"sid": sid})
     
     return True
 
@@ -150,10 +148,10 @@ async def init_session(sid, data):
 
 
 @sio.event
-async def audio(sid, data):
+async def audio_input(sid, data):
     """Handle audio input message."""
     try:
-        logger.debug("Processing audio message", extra={"sid": sid})
+        logger.debug("Processing audio_input message", extra={"sid": sid})
         
         # Get session
         if sid not in active_sessions:
@@ -219,15 +217,17 @@ async def audio(sid, data):
         }, exc_info=True)
         
         await sio.emit('error', {
-            'message': f'Audio processing failed: {str(e)}'
+            'message': f'Audio processing failed: {str(e)}',
+            'error_type': type(e).__name__,
+            'details': str(e)
         }, to=sid)
 
 
 @sio.event
-async def text(sid, data):
+async def text_input(sid, data):
     """Handle text input message."""
     try:
-        logger.debug("Processing text message", extra={"sid": sid})
+        logger.debug("Processing text_input message", extra={"sid": sid})
         
         # Get session
         if sid not in active_sessions:
@@ -272,7 +272,9 @@ async def text(sid, data):
         }, exc_info=True)
         
         await sio.emit('error', {
-            'message': f'Text processing failed: {str(e)}'
+            'message': f'Text processing failed: {str(e)}',
+            'error_type': type(e).__name__,
+            'details': str(e)
         }, to=sid)
 
 
@@ -307,12 +309,23 @@ async def process_and_respond(
             "processing_time_ms": int(result_state["processing_time"] * 1000)
         })
         
-        # Send tutor transcript
+        # Send tutor transcript with RAG context info
         if result_state.get("response_text"):
+            rag_context_count = len(result_state.get("rag_context", []))
+            rag_sources_used = rag_context_count > 0
+            
             await sio.emit('transcript', {
                 'from': 'tutor',
-                'text': result_state["response_text"]
+                'text': result_state["response_text"],
+                'rag_sources_used': rag_sources_used,
+                'rag_context_count': rag_context_count
             }, to=sid)
+            
+            logger.info("Response sent with RAG info", extra={
+                "sid": sid,
+                "rag_sources_used": rag_sources_used,
+                "rag_context_count": rag_context_count
+            })
         
         # Send visual actions
         if result_state.get("visual_actions"):

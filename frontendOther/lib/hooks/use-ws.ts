@@ -17,18 +17,22 @@ export function useWebSocket() {
         
         console.log('[Agora] Connecting to WebSocket:', wsUrl);
         
+        // Setup connect handler BEFORE connecting
+        wsClient.on('connect', () => {
+          console.log('[Agora] Socket.IO connected! Socket ID:', wsClient.isConnected());
+          // NOW send init_session after connection is established
+          console.log('[Agora] Sending init_session...');
+          wsClient.send('init_session', {
+            user_id: userId,
+            session_id: sessionId,
+            course_id: 'default-course'
+          });
+        });
+        
         await wsClient.connect({
           url: wsUrl,
           userId,
           sessionId,
-        });
-
-        // Initialize session after connection
-        console.log('[Agora] Initializing session...');
-        wsClient.send('init_session', {
-          user_id: userId,
-          session_id: sessionId,
-          course_id: 'default-course'
         });
 
         wsClient.on('session_initialized', (data) => {

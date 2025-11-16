@@ -99,70 +99,81 @@ export default function AgoraPage() {
   }, [isLoading]);
 
   return (
-    <main className="flex h-screen w-full bg-secondary overflow-hidden">
+    <main className="flex h-screen w-full bg-zinc-950 overflow-hidden">
       <div className="flex-1 flex flex-col">
-        <header className="flex-shrink-0 px-8 py-6 border-b border-secondary-dark bg-secondary">
+        {/* Header with Orb */}
+        <header className="flex-shrink-0 px-8 py-4 border-b border-zinc-800 bg-black">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-4xl font-bold text-primary">Agora</h1>
-              <p className="text-sm text-primary-light mt-1">
-                {isConnected ? 'Connected' : 'Connecting...'}
-              </p>
+            <div className="flex items-center gap-6">
+              <div>
+                <h1 className="text-3xl font-bold text-white">Agora</h1>
+                <p className="text-xs text-zinc-400 mt-0.5">
+                  {isConnected ? 'Connected' : 'Connecting...'}
+                </p>
+              </div>
+              {/* Orb moved to header */}
+              <div className="ml-4">
+                <OrbStatus state={orbState} />
+              </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <span
-                className={`text-xs font-semibold uppercase tracking-widest px-3 py-1 rounded-full ${
+                className={`text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full ${
                   isConnected
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-yellow-100 text-yellow-700'
+                    ? 'bg-green-500/10 text-green-400 border border-green-500/30'
+                    : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30'
                 }`}
               >
-                {isConnected ? 'Ready' : 'Connecting'}
+                {isConnected ? '● Ready' : '○ Connecting'}
               </span>
             </div>
           </div>
         </header>
 
+        {/* Main content area */}
         <div className="flex-1 flex overflow-hidden min-h-0">
-          <div className="flex-1 flex flex-col min-w-0 min-h-0">
+          {/* Whiteboard (now blackboard) */}
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-zinc-900">
             <WhiteboardPane ref={whiteboardRef} />
           </div>
 
-          <div className="w-96 flex flex-col border-l border-secondary-dark flex-shrink-0">
+          {/* Conversation */}
+          <div className="w-[600px] flex flex-col border-l border-zinc-800 flex-shrink-0 bg-black">
             <TranscriptPanel messages={messages} isLoading={isLoading} />
           </div>
         </div>
 
-        <div className="flex-shrink-0 flex flex-col items-center justify-center py-8 px-6 bg-secondary border-t border-secondary-dark gap-6">
-          <OrbStatus state={orbState} />
-
-          <RecorderButton
-            onAudioSubmit={handleAudioSubmit}
-            disabled={!isReady}
-            isProcessing={isLoading}
-          />
-
-          <form onSubmit={handleTextSubmit} className="w-full max-w-2xl flex gap-2">
-            <input
-              type="text"
-              value={textInput}
-              onChange={(e) => setTextInput(e.target.value)}
-              placeholder="Or type your question here..."
-              disabled={!isReady || isLoading}
-              className="flex-1 px-4 py-2 rounded-lg border border-secondary-dark bg-secondary-light text-primary placeholder:text-primary-light/50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
-              autoComplete="off"
+        {/* Bottom control panel */}
+        <div className="flex-shrink-0 flex flex-col items-center justify-center py-4 px-6 bg-black border-t border-zinc-800 gap-4">
+          <div className="flex items-center gap-4 w-full max-w-4xl">
+            <RecorderButton
+              onAudioSubmit={handleAudioSubmit}
+              disabled={!isReady}
+              isProcessing={isLoading}
             />
-            <button
-              type="submit"
-              disabled={!isReady || isLoading || !textInput.trim()}
-              className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
-            >
-              Send
-            </button>
-          </form>
 
-          <p className="text-xs text-primary-light text-center max-w-xs">
-            {orbState === 'idle' && 'Hold the button and speak, or type your question'}
+            <form onSubmit={handleTextSubmit} className="flex-1 flex gap-2">
+              <input
+                type="text"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                placeholder="Ask your tutor anything..."
+                disabled={!isReady || isLoading}
+                className="flex-1 px-5 py-3 rounded-lg border border-zinc-700 bg-zinc-900 text-white placeholder:text-zinc-500 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-zinc-600 focus:border-zinc-600 transition-all"
+                autoComplete="off"
+              />
+              <button
+                type="submit"
+                disabled={!isReady || isLoading || !textInput.trim()}
+                className="px-8 py-3 rounded-lg bg-zinc-800 text-white font-semibold hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all focus:outline-none focus:ring-2 focus:ring-zinc-600"
+              >
+                Send
+              </button>
+            </form>
+          </div>
+
+          <p className="text-xs text-zinc-500 text-center">
+            {orbState === 'idle' && 'Hold to speak, or type your question above'}
             {orbState === 'listening' && 'Listening to your question...'}
             {orbState === 'thinking' && 'Tutor is thinking...'}
             {orbState === 'speaking' && 'Tutor is responding...'}

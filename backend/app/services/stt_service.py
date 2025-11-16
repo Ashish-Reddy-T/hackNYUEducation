@@ -277,15 +277,21 @@ def get_stt_service() -> STTEngine:
 
 # Global singleton
 _stt_service: Optional[STTEngine] = None
+_stt_initialized: bool = False
 
 
-def get_global_stt() -> STTEngine:
+async def get_global_stt() -> STTEngine:
     """Get or create global STT service instance."""
-    global _stt_service
+    global _stt_service, _stt_initialized
     
     if _stt_service is None:
         logger.debug("Creating global STT service...")
         _stt_service = get_stt_service()
+    
+    if not _stt_initialized:
+        logger.debug("Initializing global STT service...")
+        await _stt_service.initialize()
+        _stt_initialized = True
     
     return _stt_service
 

@@ -28,17 +28,17 @@ export const WhiteboardPane = forwardRef<WhiteboardPaneRef, WhiteboardPaneProps>
       const width = 200;
       const height = 150;
 
-      // Note background (light yellow)
-      ctx.fillStyle = '#FFE5B4';
+      // Note background (dark gray for blackboard)
+      ctx.fillStyle = '#27272a';  // zinc-800
       ctx.fillRect(note.x, note.y, width, height);
 
       // Note border
-      ctx.strokeStyle = '#D4A574';
+      ctx.strokeStyle = '#52525b';  // zinc-600
       ctx.lineWidth = 2;
       ctx.strokeRect(note.x, note.y, width, height);
 
-      // Text
-      ctx.fillStyle = '#111111';
+      // Text (light for visibility)
+      ctx.fillStyle = '#e4e4e7';  // zinc-200
       ctx.font = '14px Inter, system-ui';
       ctx.textBaseline = 'top';
 
@@ -104,8 +104,8 @@ export const WhiteboardPane = forwardRef<WhiteboardPaneRef, WhiteboardPaneProps>
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
       context.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-      context.strokeStyle = '#111111';
-      context.lineWidth = 2;
+      context.strokeStyle = '#e4e4e7';  // zinc-200 - chalk white
+      context.lineWidth = 3;
       context.lineCap = 'round';
       context.lineJoin = 'round';
       context.stroke();
@@ -121,7 +121,7 @@ export const WhiteboardPane = forwardRef<WhiteboardPaneRef, WhiteboardPaneProps>
     const handleClear = () => {
       const canvas = canvasRef.current;
       if (!canvas || !context) return;
-      context.fillStyle = '#FFFFFF';
+      context.fillStyle = '#09090b';  // zinc-950 - blackboard
       context.fillRect(0, 0, canvas.width, canvas.height);
       setNotes([]);
     };
@@ -154,7 +154,7 @@ export const WhiteboardPane = forwardRef<WhiteboardPaneRef, WhiteboardPaneProps>
 
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.fillStyle = '#FFFFFF';
+          ctx.fillStyle = '#09090b';  // zinc-950 - blackboard
           ctx.fillRect(0, 0, canvas.width, canvas.height);
           
           // Redraw existing notes
@@ -172,22 +172,22 @@ export const WhiteboardPane = forwardRef<WhiteboardPaneRef, WhiteboardPaneProps>
     }, [notes]);
 
     return (
-      <div ref={containerRef} className="flex flex-col h-full w-full bg-secondary overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-secondary-dark flex-shrink-0">
-          <h2 className="text-2xl font-bold text-primary">Whiteboard</h2>
+      <div ref={containerRef} className="flex flex-col h-full w-full bg-zinc-900 overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-zinc-800 flex-shrink-0">
+          <h2 className="text-2xl font-bold text-white">Blackboard</h2>
           <div className="flex gap-3">
             {!isReadOnly && (
               <>
                 <button
                   onClick={handleClear}
-                  className="px-4 py-2 text-sm font-medium text-primary bg-secondary-dark rounded-lg hover:bg-primary hover:text-secondary transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-white bg-zinc-800 rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
                   Clear
                 </button>
                 <button
                   onClick={handleExport}
-                  className="px-4 py-2 text-sm font-medium text-secondary bg-primary rounded-lg hover:bg-primary-light transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-white bg-zinc-700 rounded-lg hover:bg-zinc-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   type="button"
                 >
                   Export
@@ -204,8 +204,8 @@ export const WhiteboardPane = forwardRef<WhiteboardPaneRef, WhiteboardPaneProps>
             onMouseMove={handleMouseMove}
             onMouseUp={handleMouseUp}
             onMouseLeave={handleMouseUp}
-            className={`w-full h-full bg-white ${!isReadOnly && 'cursor-crosshair'}`}
-            style={{ display: 'block' }}
+            className={`w-full h-full ${!isReadOnly && 'cursor-crosshair'}`}
+            style={{ display: 'block', backgroundColor: '#09090b' }}
           />
         </div>
       </div>
