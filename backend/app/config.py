@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     # TTS Configuration
     tts_provider: Literal["elevenlabs", "piper"] = "elevenlabs"
     elevenlabs_voice_id: str = "21m00Tcm4TlvDq8ikWAM"  # Default voice
-    elevenlabs_model: str = "eleven_monolingual_v1"
+    elevenlabs_model: str = "eleven_turbo_v2"
     
     # Storage
     storage_path: Path = Field(default=Path("backend/storage"))

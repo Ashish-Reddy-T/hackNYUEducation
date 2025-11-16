@@ -21,11 +21,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Create Socket.IO server
+# Note: python-socketio 5.10.x uses Engine.IO 4.x protocol (EIO=4)
+# Compatible with socket.io-client 4.x (frontend uses 4.8.1)
 sio = socketio.AsyncServer(
     async_mode='asgi',
-    cors_allowed_origins='*',
-    logger=False,
-    engineio_logger=False
+    cors_allowed_origins=['http://localhost:3000', 'http://localhost:5173', '*'],
+    logger=True,
+    engineio_logger=True,
+    ping_timeout=60,
+    ping_interval=25
 )
 
 # Socket.IO ASGI app

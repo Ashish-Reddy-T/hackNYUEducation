@@ -62,9 +62,14 @@ class ElevenLabsTTS(TTSEngine):
             
             self.client = ElevenLabs(api_key=self.api_key)
             
+            # Verify model is set correctly
+            if not self.model or self.model == "eleven_monolingual_v1" or self.model == "eleven_multilingual_v1":
+                logger.warning(f"Model '{self.model}' may be deprecated. Consider using 'eleven_turbo_v2' for free tier.")
+            
             logger.info("ElevenLabs TTS initialized successfully", extra={
                 "voice_id": self.voice_id,
-                "model": self.model
+                "model": self.model,
+                "api_key_length": len(self.api_key) if self.api_key else 0
             })
             
         except Exception as e:
@@ -87,31 +92,53 @@ class ElevenLabsTTS(TTSEngine):
         try:
             logger.debug("Synthesizing with ElevenLabs", extra={
                 "text_length": len(text),
-                "voice_id": self.voice_id
+                "voice_id": self.voice_id,
+                "model": self.model
             })
             
             if not self.client:
                 raise RuntimeError("ElevenLabs client not initialized")
             
-            logger.debug("Calling ElevenLabs API...")
+            logger.debug("Calling ElevenLabs API...", extra={
+                "model": self.model,
+                "voice_id": self.voice_id
+            })
             
-            # Generate audio
-            audio_generator = self.client.generate(
-                text=text,
-                voice=self.voice_id,
-                model=self.model
-            )
+            # Generate audio using the new API format
+            # The convert method returns a generator that yields audio chunks
+            # Note: model_id parameter name may vary by SDK version
+            try:
+                # Try with model_id parameter (newer SDK versions)
+                audio_stream = self.client.text_to_speech.convert(
+                    voice_id=self.voice_id,
+                    text=text,
+                    model_id=self.model
+                )
+            except TypeError:
+                # Fallback: try with model parameter (older SDK versions)
+                logger.debug("Trying with 'model' parameter instead of 'model_id'")
+                audio_stream = self.client.text_to_speech.convert(
+                    voice_id=self.voice_id,
+                    text=text,
+                    model=self.model
+                )
             
-            # Collect audio chunks
+            # Collect audio chunks from the stream
             audio_chunks = []
-            for chunk in audio_generator:
-                audio_chunks.append(chunk)
+            for chunk in audio_stream:
+                if chunk:
+                    audio_chunks.append(chunk)
             
             audio_data = b"".join(audio_chunks)
             
+            if not audio_data or len(audio_data) == 0:
+                logger.warning("ElevenLabs returned empty audio data")
+                raise RuntimeError("Empty audio data received from ElevenLabs")
+            
             logger.info("ElevenLabs synthesis completed", extra={
                 "text_length": len(text),
-                "audio_size": len(audio_data)
+                "audio_size": len(audio_data),
+                "model": self.model
             })
             
             return audio_data
@@ -120,7 +147,9 @@ class ElevenLabsTTS(TTSEngine):
             logger.error("ElevenLabs synthesis failed", extra={
                 "error": str(e),
                 "error_type": type(e).__name__,
-                "text_length": len(text)
+                "text_length": len(text),
+                "model": self.model,
+                "voice_id": self.voice_id
             }, exc_info=True)
             raise
     

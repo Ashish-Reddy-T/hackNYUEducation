@@ -12,7 +12,10 @@ export function useWebSocket() {
   useEffect(() => {
     const setupConnection = async () => {
       try {
+        // Socket.IO automatically uses /socket.io path, so just use base URL
         const wsUrl = process.env.NEXT_PUBLIC_WS_URL || 'http://localhost:8000';
+        
+        console.log('[Agora] Connecting to WebSocket:', wsUrl);
         
         await wsClient.connect({
           url: wsUrl,
@@ -20,12 +23,27 @@ export function useWebSocket() {
           sessionId,
         });
 
+        // Initialize session after connection
+        console.log('[Agora] Initializing session...');
+        wsClient.send('init_session', {
+          user_id: userId,
+          session_id: sessionId,
+          course_id: 'default-course'
+        });
+
+        wsClient.on('session_initialized', (data) => {
+          console.log('[Agora] Session initialized:', data);
+          setIsReady(true);
+        });
+
         wsClient.on('transcript', (data) => {
+          console.log('[Agora] Transcript received:', data);
           addMessage(data.from, data.text);
           setLoading(false);
         });
 
         wsClient.on('audio_response', (data) => {
+          console.log('[Agora] Audio response received');
           // Handle audio playback
           const audioData = `data:audio/mpeg;base64,${data.data}`;
           const audio = new Audio(audioData);
@@ -35,30 +53,45 @@ export function useWebSocket() {
         });
 
         wsClient.on('visual', (data) => {
+          console.log('[Agora] Visual action received:', data);
           // Emit visual action event
           window.dispatchEvent(
             new CustomEvent('agora:visual', { detail: data })
           );
         });
 
+        wsClient.on('session_status', (data) => {
+          console.log('[Agora] Session status:', data);
+          if (data.status === 'complete') {
+            setLoading(false);
+          }
+        });
+
         wsClient.on('connection_status', (data) => {
+          console.log('[Agora] Connection status:', data);
           setIsReady(data.connected);
         });
 
         wsClient.on('error', (data) => {
           setError(data.message);
           console.error('[Agora] WebSocket error:', data);
+          setLoading(false);
+          setIsReady(false);
         });
 
-        setIsReady(true);
+        // Don't set ready until connection is established
+        // isReady will be set by connection_status event
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Connection failed';
         setError(message);
         console.error('[Agora] WebSocket setup failed:', err);
+        setIsReady(false);
       }
     };
 
-    setupConnection();
+    if (userId && sessionId) {
+      setupConnection();
+    }
 
     return () => {
       wsClient.disconnect();

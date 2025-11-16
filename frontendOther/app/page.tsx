@@ -123,12 +123,12 @@ export default function AgoraPage() {
           </div>
         </header>
 
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex overflow-hidden min-h-0">
+          <div className="flex-1 flex flex-col min-w-0 min-h-0">
             <WhiteboardPane ref={whiteboardRef} />
           </div>
 
-          <div className="w-96 flex flex-col border-l border-secondary-dark">
+          <div className="w-96 flex flex-col border-l border-secondary-dark flex-shrink-0">
             <TranscriptPanel messages={messages} isLoading={isLoading} />
           </div>
         </div>
@@ -149,12 +149,13 @@ export default function AgoraPage() {
               onChange={(e) => setTextInput(e.target.value)}
               placeholder="Or type your question here..."
               disabled={!isReady || isLoading}
-              className="flex-1 px-4 py-2 rounded-lg border border-secondary-dark bg-secondary-light text-primary placeholder:text-primary-light/50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50"
+              className="flex-1 px-4 py-2 rounded-lg border border-secondary-dark bg-secondary-light text-primary placeholder:text-primary-light/50 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary"
+              autoComplete="off"
             />
             <button
               type="submit"
               disabled={!isReady || isLoading || !textInput.trim()}
-              className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-6 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               Send
             </button>

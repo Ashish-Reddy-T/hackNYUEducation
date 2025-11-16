@@ -20,26 +20,52 @@ export class WSClient {
 
     return new Promise((resolve, reject) => {
       try {
+        console.log('[Agora] Creating Socket.IO connection to:', config.url);
+        
         this.socket = io(config.url, {
           reconnection: true,
           reconnectionDelay: 1000,
           reconnectionDelayMax: 5000,
           reconnectionAttempts: this.maxReconnectAttempts,
+          transports: ['websocket', 'polling'],
+          upgrade: true,
+          rememberUpgrade: true,
           query: {
             user_id: config.userId,
             session_id: config.sessionId,
           },
+          timeout: 20000,
         });
 
+        // Set up timeout
+        const timeout = setTimeout(() => {
+          if (!this.socket?.connected) {
+            console.error('[Agora] Connection timeout after 20s');
+            reject(new Error('WebSocket connection timeout'));
+          }
+        }, 20000);
+
+        // Connection successful
         this.socket.on('connect', () => {
-          console.log('[Agora] WebSocket connected');
+          console.log('[Agora] WebSocket connected, socket ID:', this.socket?.id);
+          clearTimeout(timeout);
           this.reconnectAttempts = 0;
           this.emit('connection_status', { connected: true });
           resolve();
         });
 
-        this.socket.on('disconnect', () => {
-          console.log('[Agora] WebSocket disconnected');
+        // Connection failed
+        this.socket.on('connect_error', (error) => {
+          console.error('[Agora] Connection error:', error);
+          clearTimeout(timeout);
+          this.emit('error', { message: error.message || 'Connection failed' });
+          if (!this.socket?.connected) {
+            reject(error);
+          }
+        });
+
+        this.socket.on('disconnect', (reason) => {
+          console.log('[Agora] WebSocket disconnected:', reason);
           this.emit('connection_status', { connected: false });
         });
 
@@ -48,6 +74,7 @@ export class WSClient {
           this.emit('error', { message: error });
         });
 
+        // Set up message handlers
         this.socket.on('transcript', (data) => {
           this.emit('transcript', data);
         });
@@ -64,15 +91,17 @@ export class WSClient {
           this.emit('session_status', data);
         });
 
-        // Timeout for connection
-        const timeout = setTimeout(() => {
-          reject(new Error('WebSocket connection timeout'));
-        }, 10000);
-
-        this.socket.once('connect', () => {
-          clearTimeout(timeout);
+        this.socket.on('session_initialized', (data) => {
+          this.emit('session_initialized', data);
         });
+
+        // Log connection attempts
+        this.socket.on('connecting', () => {
+          console.log('[Agora] Connecting...');
+        });
+
       } catch (error) {
+        console.error('[Agora] Failed to create socket:', error);
         reject(error);
       }
     });
@@ -116,6 +145,14 @@ export class WSClient {
       user_id: this.config.userId,
       text,
     });
+  }
+
+  send(event: string, data: any): void {
+    if (!this.socket) {
+      throw new Error('WebSocket not connected');
+    }
+
+    this.socket.emit(event, data);
   }
 
   on(messageType: string, callback: MessageCallback): void {

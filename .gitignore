@@ -38,6 +38,7 @@ build/
 .env.development.local
 .env.test.local
 .env.production.local
+backend/.env.bak
 
 # IDE
 .vscode/
@@ -71,6 +72,12 @@ AGENTS.md
 codex_agora_prompt.md
 COMPLETE_TEST_PLAN.md
 TEST_RESULTS.md
+TEST_STATUS.md
+WEBSOCKET_FIX.md
+SOCKET_IO_FIX_VERIFICATION.md
+DIAGNOSIS_AND_FIXES.md
+BROWSER_TEST_INSTRUCTIONS.md
+
 
 frontend/
 shared/
