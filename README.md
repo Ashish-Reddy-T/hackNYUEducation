@@ -1,171 +1,163 @@
-# Agora - Voice-first Socratic Tutor
+<div align="center">
 
-A multimodal AI tutoring system that uses voice interaction, Socratic questioning, and visual aids to help students learn.
+# Agora — Voice‑First Socratic Tutor
 
-## Architecture
+Multimodal tutoring with voice, retrieval‑augmented reasoning, and a collaborative whiteboard.
 
-- **Backend**: FastAPI + LangGraph + Gemini 2.5 Pro + Qdrant
-- **Frontend**: Next.js 16 + React 19 + Tailwind CSS + Tldraw (in `frontendOther/`)
-- **Services**: Deepgram (STT), ElevenLabs (TTS), Docling (document parsing)
+</div>
 
-## Quick Start
+**Live stack:** FastAPI + LangGraph + Gemini + Qdrant + Next.js + Socket.IO + Deepgram + ElevenLabs
 
-### Prerequisites
+## Highlights
 
-- Python 3.10+
-- Node.js 18+
-- Docker & Docker Compose
-- Conda (recommended)
+- Voice push‑to‑talk with real‑time STT and TTS
+- Socratic prompting with frustration monitoring and quiz mode
+- Materials ingest (PDF/images/text) into Qdrant RAG store
+- Shared JSON schemas for tight frontend/backend contracts
+- Interactive whiteboard actions (create notes, highlight, load images)
+- Structured JSON logging and sane defaults for local/dev/prod
 
-### 1. Start Qdrant
+## Tech Stack
 
-```bash
-docker-compose up -d
+- Backend: FastAPI, LangGraph, Google Gemini, Qdrant, httpx, websockets
+- Speech: Deepgram (STT), ElevenLabs (TTS), Piper/pyttsx3 (local fallback)
+- Frontend: Next.js 16 (React 19), Tailwind, Zustand, socket.io‑client, Tldraw
+- Data: Qdrant (vector DB), Docling (document parsing)
+- Tooling: Pydantic v2, Ruff, MyPy, Vitest/Playwright (planned), Docker Compose
+
+## Repository Layout
+
+```
+backend/                  # FastAPI app, services, LangGraph
+	app/
+		api/                  # HTTP + Socket.IO routes
+		services/             # gemini, qdrant, stt, tts
+		graph/                # state + nodes + builder
+		workers/              # chunking + ingest
+	requirements.txt        # Python deps (pip)
+frontendOther/            # Next.js app (App Router)
+	app/, components/, lib/ # UI, hooks, stores, ws client
+shared/schema/            # Pydantic + Zod message contracts
+docker-compose.yml        # Qdrant + (backend + frontend) services
+.env.example              # Backend + Compose example env
 ```
 
-### 2. Setup Backend
+## Environment
 
-```bash
+API keys are required. Copy examples and fill in values.
+
+```zsh
+cp .env.example .env                    # Backend + compose
+cp frontendOther/.env.local.example frontendOther/.env.local  # Frontend
+```
+
+Required keys and sensible defaults are documented in the example files.
+
+## Local Development
+
+### Prereqs
+
+- Python 3.11+
+- Node.js 20+
+- pnpm 9+ (Corepack auto‑installs) or npm
+- Docker (for Qdrant/dev compose)
+
+### 1) Start Qdrant
+
+```zsh
+docker compose up -d qdrant
+```
+
+### 2) Backend (FastAPI)
+
+Option A — venv (recommended)
+```zsh
 cd backend
-
-# Create conda environment
-conda env create -f environment.yml
-conda activate agora
-
-# Copy environment variables
-cp ../.env.example .env
-# Edit .env with your API keys
-
-# Run server
+python -m venv .venv && source .venv/bin/activate
+python -m pip install -r requirements.txt
 python -m app.main
 ```
 
-The backend will be available at `http://localhost:8000`
+Option B — Conda
+```zsh
+cd backend
+conda env create -f environment.yml
+conda activate agora
+python -m app.main
+```
 
-### 3. Setup Frontend
+Backend serves at `http://localhost:8000` and mounts Socket.IO at `/socket.io`.
 
-```bash
+### 3) Frontend (Next.js)
+
+```zsh
 cd frontendOther
-
-# Install dependencies
 pnpm install
-
-# Frontend is pre-configured with .env.local
-
-# Run dev server
 pnpm dev
 ```
 
-The frontend will be available at `http://localhost:3000`
+Frontend runs at `http://localhost:3000`.
 
-## API Keys Required
+## Docker Deployment
 
-- **Gemini API**: Get from [Google AI Studio](https://makersuite.google.com/app/apikey)
-- **Deepgram API**: Get from [Deepgram](https://console.deepgram.com/)
-- **ElevenLabs API**: Get from [ElevenLabs](https://elevenlabs.io/)
+We provide Dockerfiles for backend and frontend and extend `docker-compose.yml` to run the full stack.
 
-## Features
-
-- ✅ Voice-first interaction (push-to-talk)
-- ✅ Socratic tutoring methodology
-- ✅ Document upload & parsing (PDF, images, text)
-- ✅ RAG-based contextual responses
-- ✅ Memory tracking of student progress
-- ✅ Interactive whiteboard with Tldraw
-- ✅ Real-time WebSocket communication
-- ✅ Quiz generation from confused topics
-
-## Project Structure
-
-```
-agora/
-├── backend/
-│   ├── app/
-│   │   ├── api/          # FastAPI routes
-│   │   ├── services/     # Gemini, Qdrant, STT, TTS
-│   │   ├── graph/        # LangGraph nodes and state
-│   │   └── workers/      # Document processing
-│   ├── environment.yml   # Conda dependencies
-│   └── pyproject.toml    # Poetry config
-├── frontend/
-│   ├── src/
-│   │   ├── routes/       # SvelteKit pages
-│   │   ├── lib/          # Components, stores, services
-│   │   └── app.html
-│   └── package.json
-├── shared/
-│   └── schema/           # Shared type definitions
-└── docker-compose.yml    # Qdrant service
+Build and start everything:
+```zsh
+docker compose up -d --build
 ```
 
-## Development
+Services:
+- Backend: http://localhost:8000
+- Frontend: http://localhost:3000
+- Qdrant: http://localhost:6333
 
-### Backend
+To follow logs:
+```zsh
+docker compose logs -f backend frontend qdrant
+```
 
-```bash
-# Run with auto-reload
-uvicorn app.main:app --reload
+To stop:
+```zsh
+docker compose down
+```
 
-# Run tests
+Notes:
+- ElevenLabs is the default TTS in containers. Local Piper/pyttsx3 is supported but requires espeak-ng and lacks direct audio playback; we write to file and convert to MP3.
+- Frontend `NEXT_PUBLIC_*` values are inlined at build time. Set them in `.env` (compose) or `frontendOther/.env.local` before building.
+
+## Running Tests and Linters
+
+Backend:
+```zsh
+cd backend
 pytest
-
-# Lint
 ruff check .
 mypy .
 ```
 
-### Frontend
-
-```bash
-# Development server
-pnpm dev
-
-# Build for production
-pnpm build
-
-# Preview production build
-pnpm preview
-
-# Lint
+Frontend:
+```zsh
+cd frontendOther
 pnpm lint
+pnpm build
 ```
 
-## Logging
+## Key Features (Detail)
 
-The application uses structured JSON logging with DEBUG level throughout. All logs include:
-- Timestamp
-- Log level
-- Module/function name
-- Context-specific metadata
-
-Check backend logs for detailed execution traces.
+- Voice Loop: press‑to‑talk → STT → LangGraph route → RAG → Socratic response → TTS stream
+- Materials Ingest: `/api/materials/upload` processes PDFs/images/text via Docling, embeds with Gemini, upserts to Qdrant per `user_id`/`course_id`
+- Shared Contracts: JSON message types validated on both sides under `shared/schema`
+- Whiteboard Actions: backend emits `visual` messages (create/hightlight/load) → Tldraw updates
+- Session Tracking: uuidv4 `user_id` (localStorage) + `session_id` per run
 
 ## Troubleshooting
 
-### Qdrant Connection Issues
-
-Ensure Qdrant is running:
-```bash
-docker-compose ps
-curl http://localhost:6333/health
-```
-
-### STT/TTS Errors
-
-- Verify API keys in `.env`
-- Check API rate limits
-- Try fallback providers (whisper for STT, piper for TTS)
-
-### WebSocket Disconnections
-
-- Check CORS settings in `backend/app/main.py`
-- Verify frontend is connecting to correct WebSocket URL
-- Check browser console for errors
+- Qdrant: `curl http://localhost:6333/health`
+- WebSocket: ensure `NEXT_PUBLIC_WS_URL` points to `http://localhost:8000`
+- STT/TTS: verify keys in `.env`; switch providers with `STT_PROVIDER`/`TTS_PROVIDER`
+- Logs: set `LOG_LEVEL=INFO` to reduce noise; optional `LOG_FILE=/tmp/agora_backend.log`
 
 ## License
 
-MIT
-
-## Contributors
-
-Agora Team @ NYU Hackathon 2025
+MIT — Built for NYU Hackathon 2025
