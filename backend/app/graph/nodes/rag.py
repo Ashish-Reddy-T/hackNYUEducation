@@ -40,6 +40,29 @@ async def rag_node(state: TutorState) -> TutorState:
             return state
         
         query_text = state["last_user_text"]
+
+        # Normalize the query to check for generic "what's in my doc" questions
+        normalized_query = query_text.lower().strip().replace("?", "").replace(".", "")
+        generic_queries = [
+            "what is in that pdf",
+            "what is in my pdf",
+            "what are my notes about",
+            "tell me about my document",
+            "what is this pdf about",
+            "so what is in that pdf you tell me",
+            "give me an idea first"
+        ]
+        
+        # Check if the normalized query is one of the generic phrases
+        is_generic_query = any(q in normalized_query for q in generic_queries)
+
+        if is_generic_query:
+            logger.debug(
+                "Generic meta-query detected. Using a broad query to fetch content.",
+                extra={"original_query": query_text}
+            )
+            # Use a query that is semantically rich and represents "all content"
+            query_text = "A general summary of all topics, concepts, and content in the document."
         
         if not query_text or query_text.strip() == "":
             logger.warning("Empty query text, skipping RAG")

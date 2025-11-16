@@ -7,6 +7,7 @@ interface SessionState {
   isConnected: boolean;
   currentTopic: string;
   uploadedMaterials: Array<{ id: string; name: string; type: string }>;
+  isTutorAudioEnabled: boolean;
 }
 
 interface SessionStore extends SessionState {
@@ -17,6 +18,7 @@ interface SessionStore extends SessionState {
   addMaterial: (name: string, type: string) => void;
   removeMaterial: (id: string) => void;
   clearMaterials: () => void;
+  toggleTutorAudio: () => void;
 }
 
 const getStoredUserId = () => {
@@ -34,6 +36,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
   isConnected: false,
   currentTopic: 'General',
   uploadedMaterials: [],
+  isTutorAudioEnabled: true,
 
   initSession: (topic = 'General') => {
     set({
@@ -81,5 +84,11 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
   clearMaterials: () => {
     set({ uploadedMaterials: [] });
+  },
+
+  toggleTutorAudio: () => {
+    set((state) => ({
+      isTutorAudioEnabled: !state.isTutorAudioEnabled,
+    }));
   },
 }));

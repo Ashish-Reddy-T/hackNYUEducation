@@ -6,7 +6,7 @@ import { useMessageStore } from '@/lib/store/messages';
 export function useWebSocket() {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { userId, sessionId, initSession } = useSessionStore();
+  const { userId, sessionId, initSession, currentTopic } = useSessionStore();
   const { addMessage, setLoading } = useMessageStore();
 
   useEffect(() => {
@@ -20,12 +20,13 @@ export function useWebSocket() {
         // Setup connect handler BEFORE connecting
         wsClient.on('connect', () => {
           console.log('[Agora] Socket.IO connected! Socket ID:', wsClient.isConnected());
-          // NOW send init_session after connection is established
+          
+          // 3. FIX THIS BLOCK
           console.log('[Agora] Sending init_session...');
           wsClient.send('init_session', {
             user_id: userId,
             session_id: sessionId,
-            course_id: 'default-course'
+            course_id: currentTopic || 'General' // <-- Use the topic from the store
           });
         });
         
@@ -48,14 +49,16 @@ export function useWebSocket() {
 
         wsClient.on('audio_response', (data) => {
           console.log('[Agora] Audio response received');
-          // Handle audio playback
-          // const audioData = `data:audio/mpeg;base64,${data.data}`;
-
-          const audioData = `data:${data.format};base64,${data.data}`;
-          const audio = new Audio(audioData);
-          audio.play().catch((err) => {
-            console.error('[Agora] Audio playback failed:', err);
-          });
+          
+          if (useSessionStore.getState().isTutorAudioEnabled) {
+            const audioData = `data:${data.format};base64,${data.data}`;
+            const audio = new Audio(audioData);
+            audio.play().catch((err) => {
+              console.error('[Agora] Audio playback failed:', err);
+            });
+          } else {
+            console.log('[Agora] Audio playback skipped (tutor is muted)');
+          }
         });
 
         wsClient.on('visual', (data) => {
@@ -102,7 +105,7 @@ export function useWebSocket() {
     return () => {
       wsClient.disconnect();
     };
-  }, [userId, sessionId, addMessage, setLoading]);
+  }, [userId, sessionId, addMessage, setLoading, initSession, currentTopic]);
 
   const sendAudio = useCallback(
     async (blob: Blob) => {

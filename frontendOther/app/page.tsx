@@ -19,7 +19,7 @@ export default function AgoraPage() {
   const [textInput, setTextInput] = useState('');
   const { isReady, sendAudio, sendText, isConnected } = useWebSocket();
   const { messages, isLoading, addMessage } = useMessageStore();
-  const { initSession } = useSessionStore();
+  const { initSession, isTutorAudioEnabled, toggleTutorAudio } = useSessionStore();
 
   useEffect(() => {
     initSession();
@@ -126,6 +126,17 @@ export default function AgoraPage() {
               >
                 {isConnected ? '● Ready' : '○ Connecting'}
               </span>
+              <button
+                onClick={toggleTutorAudio}
+                title={isTutorAudioEnabled ? 'Mute Tutor Voice' : 'Unmute Tutor Voice'}
+                className="p-2 rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+              >
+                {isTutorAudioEnabled ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>
+                )}
+              </button>
             </div>
           </div>
         </header>

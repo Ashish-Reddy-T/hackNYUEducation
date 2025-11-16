@@ -17,7 +17,7 @@ export function UploadPanel({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const { addMaterial } = useSessionStore();
+  const { addMaterial, userId, currentTopic } = useSessionStore();
 
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -45,8 +45,9 @@ export function UploadPanel({
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('user_id', 'default-user');
-      formData.append('course_id', 'default-course');
+
+      formData.append('user_id', userId);
+      formData.append('course_id', currentTopic);
 
       const xhr = new XMLHttpRequest();
 
