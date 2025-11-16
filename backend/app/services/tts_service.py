@@ -2,6 +2,10 @@
 Text-to-Speech (TTS) service with pluggable providers.
 Supports ElevenLabs API and local Piper.
 """
+import io
+import tempfile
+import os
+
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional
@@ -10,6 +14,11 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+try:
+    from pydub import AudioSegment
+except ImportError:
+    logger.warning("pydub not installed. PiperTTS will output WAV.")
+    AudioSegment = None
 
 class TTSEngine(ABC):
     """Abstract base class for TTS engines."""
@@ -203,13 +212,13 @@ class PiperTTS(TTSEngine):
     
     async def synthesize(self, text: str) -> bytes:
         """
-        Synthesize speech using pyttsx3.
+        Synthesize speech using pyttsx3 and convert to MP3.
         
         Args:
             text: Text to synthesize
         
         Returns:
-            Audio bytes (WAV)
+            Audio bytes (MP3)
         """
         try:
             logger.debug("Synthesizing with Piper (pyttsx3)", extra={
@@ -219,14 +228,14 @@ class PiperTTS(TTSEngine):
             if not self.engine:
                 raise RuntimeError("Piper engine not initialized")
             
+            if AudioSegment is None:
+                raise RuntimeError("pydub is not installed. Cannot convert to MP3.")
+
             # Save to temporary WAV file
-            import tempfile
-            import os
-            
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_file:
                 temp_path = temp_file.name
             
-            logger.debug(f"Saving audio to: {temp_path}")
+            logger.debug(f"Saving temporary WAV to: {temp_path}")
             
             try:
                 # Generate speech to file
@@ -235,14 +244,31 @@ class PiperTTS(TTSEngine):
                 
                 # Read the audio file
                 with open(temp_path, 'rb') as f:
-                    audio_data = f.read()
+                    wav_data = f.read()
                 
-                logger.info("Piper synthesis completed", extra={
+                if not wav_data:
+                    logger.error("pyttsx3 generated an empty WAV file")
+                    raise RuntimeError("pyttsx3 generated empty audio")
+
+                # --- NEW CONVERSION BLOCK ---
+                logger.debug("Converting WAV to MP3...", extra={
+                    "wav_size": len(wav_data)
+                })
+                wav_stream = io.BytesIO(wav_data)
+                audio_segment = AudioSegment.from_wav(wav_stream)
+                
+                mp3_stream = io.BytesIO()
+                audio_segment.export(mp3_stream, format="mp3")
+                mp3_data = mp3_stream.getvalue()
+                # --- END CONVERSION BLOCK ---
+
+                logger.info("Piper synthesis completed and converted to MP3", extra={
                     "text_length": len(text),
-                    "audio_size": len(audio_data)
+                    "wav_size": len(wav_data),
+                    "mp3_size": len(mp3_data)
                 })
                 
-                return audio_data
+                return mp3_data
                 
             finally:
                 # Cleanup temp file

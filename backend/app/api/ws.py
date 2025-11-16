@@ -162,7 +162,8 @@ async def audio_input(sid, data):
             return
         
         state = active_sessions[sid]
-        stt_service = get_global_stt()
+
+        stt_service = await get_global_stt()
         
         # Extract audio data
         audio_format = data.get("format", "webm")
@@ -182,12 +183,23 @@ async def audio_input(sid, data):
             "audio_size": len(audio_bytes),
             "format": audio_format
         })
+
+        file_extension = "webm" # Default
+        if "/" in audio_format:
+            # This will turn "audio/webm" into "webm"
+            file_extension = audio_format.split("/")[-1]
+            
+        logger.debug(f"Parsed file extension: {file_extension}")
+
+        file_extension = "webm"
+        if "/" in audio_format:
+            file_extension = audio_format.split("/")[-1]
         
         # Transcribe
         logger.debug("Transcribing audio...")
         await sio.emit('session_status', {'message': 'Transcribing...'}, to=sid)
         
-        transcript = await stt_service.transcribe(audio_bytes, format=audio_format)
+        transcript = await stt_service.transcribe(audio_bytes, format=file_extension)
         
         logger.info("Audio transcribed", extra={
             "sid": sid,
@@ -347,7 +359,7 @@ async def process_and_respond(
             await sio.emit('audio_response', {
                 'session_id': result_state["session_id"],
                 'data': audio_b64,
-                'format': 'audio/wav'
+                'format': 'audio/mpeg'
             }, to=sid)
             
             logger.info("Audio response sent", extra={

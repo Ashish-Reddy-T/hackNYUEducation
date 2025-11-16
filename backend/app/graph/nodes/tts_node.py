@@ -43,7 +43,8 @@ async def tts_node(state: TutorState) -> TutorState:
             return state
         
         logger.debug("Getting TTS service...")
-        tts_service = get_global_tts()
+
+        tts_service = await get_global_tts()
         
         logger.debug("Synthesizing speech...", extra={
             "text_length": len(response_text),
