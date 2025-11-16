@@ -250,11 +250,11 @@ async def text_input(sid, data):
             "text": text_content
         })
         
-        # Send transcript
-        await sio.emit('transcript', {
-            'from': 'student',
-            'text': text_content
-        }, to=sid)
+        # # Send transcript
+        # await sio.emit('transcript', {
+        #     'from': 'student',
+        #     'text': text_content
+        # }, to=sid)
         
         # Process
         await process_and_respond(
@@ -347,7 +347,7 @@ async def process_and_respond(
             await sio.emit('audio_response', {
                 'session_id': result_state["session_id"],
                 'data': audio_b64,
-                'format': 'audio/mpeg'
+                'format': 'audio/wav'
             }, to=sid)
             
             logger.info("Audio response sent", extra={

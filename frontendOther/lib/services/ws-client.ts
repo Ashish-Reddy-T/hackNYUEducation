@@ -71,9 +71,32 @@ export class WSClient {
           this.emit('connection_status', { connected: false });
         });
 
-        this.socket.on('error', (error) => {
-          console.error('[Agora] WebSocket error:', error);
-          this.emit('error', { message: error });
+        // this.socket.on('error', (error) => {
+        //   console.error('[Agora] WebSocket error:', error);
+        //   this.emit('error', { message: error });
+        // });
+
+        this.socket.on('error', (data) => {
+          // This handles errors sent from the backend OR transport errors
+          let errorMessage = 'Unknown WebSocket error';
+
+          if (typeof data === 'object' && data !== null && data.message) {
+            // This is the expected format: { message: "..." }
+            errorMessage = data.message;
+          } else if (typeof data === 'string' && data.trim() !== '{}') {
+            // This handles if the error is just a string
+            errorMessage = data;
+          } else if (data) {
+            // This is a fallback for weird objects like {}
+            try {
+              errorMessage = `Received error object: ${JSON.stringify(data)}`;
+            } catch {
+              errorMessage = String(data);
+            }
+          }
+
+          console.error(`[Agora] WebSocket Error Received: ${errorMessage}`, data);
+          this.emit('error', { message: errorMessage });
         });
 
         // Set up message handlers

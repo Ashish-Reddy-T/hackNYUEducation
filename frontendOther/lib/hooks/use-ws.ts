@@ -49,7 +49,9 @@ export function useWebSocket() {
         wsClient.on('audio_response', (data) => {
           console.log('[Agora] Audio response received');
           // Handle audio playback
-          const audioData = `data:audio/mpeg;base64,${data.data}`;
+          // const audioData = `data:audio/mpeg;base64,${data.data}`;
+
+          const audioData = `data:${data.format};base64,${data.data}`;
           const audio = new Audio(audioData);
           audio.play().catch((err) => {
             console.error('[Agora] Audio playback failed:', err);
