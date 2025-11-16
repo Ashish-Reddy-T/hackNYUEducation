@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     upload_max_size: int = 50 * 1024 * 1024  # 50MB
     
     # LangGraph & LLM
-    gemini_model: str = "gemini-2.0-flash-exp"
+    gemini_model: str = "gemini-2.5-pro"
     gemini_temperature: float = 0.7
     gemini_max_tokens: int = 2048
     
