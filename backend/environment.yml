@@ -1,0 +1,30 @@
+name: agora
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - fastapi
+      - uvicorn[standard]
+      - python-multipart
+      - python-dotenv
+      - pydantic
+      - pydantic-settings
+      - httpx
+      - aiofiles
+      - python-socketio
+      - langgraph
+      - langchain
+      - langchain-google-genai
+      - google-generativeai
+      - qdrant-client
+      - deepgram-sdk
+      - elevenlabs
+      - openai-whisper
+      - faster-whisper
+      - docling
+      - docling-core
+      - python-json-logger
+      - websockets
