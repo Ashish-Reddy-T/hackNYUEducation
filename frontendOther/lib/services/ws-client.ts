@@ -159,6 +159,25 @@ export class WSClient {
     }
   }
 
+  async sendImage(blob: Blob): Promise<void> {
+    if (!this.socket || !this.config) {
+      throw new Error('WebSocket not connected');
+    }
+
+    try {
+      const base64 = await this.blobToBase64(blob);
+      this.socket.emit('visual_input', {
+        type: 'visual_input',
+        session_id: this.config.sessionId,
+        user_id: this.config.userId,
+        image: base64,
+      });
+    } catch (error) {
+      console.error('[Agora] Failed to send image:', error);
+      throw error;
+    }
+  }
+
   sendText(text: string): void {
     if (!this.socket || !this.config) {
       throw new Error('WebSocket not connected');

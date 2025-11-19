@@ -156,16 +156,16 @@ export const WhiteboardPane = forwardRef<WhiteboardPaneRef, WhiteboardPaneProps>
         if (ctx) {
           ctx.fillStyle = '#09090b';  // zinc-950 - blackboard
           ctx.fillRect(0, 0, canvas.width, canvas.height);
-          
+
           // Redraw existing notes
           notes.forEach(note => drawNote(ctx, note));
-          
+
           setContext(ctx);
         }
       };
 
       updateCanvasSize();
-      
+
       // Handle window resize
       window.addEventListener('resize', updateCanvasSize);
       return () => window.removeEventListener('resize', updateCanvasSize);

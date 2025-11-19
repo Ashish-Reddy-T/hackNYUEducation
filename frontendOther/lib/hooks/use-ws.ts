@@ -148,6 +148,24 @@ export function useWebSocket() {
     [isReady, setLoading] // setLoading is fine here as it's just a trigger
   );
 
+  const sendImage = useCallback(
+    async (blob: Blob) => {
+      if (!isReady) {
+        setError('WebSocket not ready');
+        return;
+      }
+      try {
+        setLoading(true);
+        await wsClient.sendImage(blob);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to send image';
+        setError(message);
+        setLoading(false);
+      }
+    },
+    [isReady, setLoading]
+  );
+
   const sendText = useCallback(
     (text: string) => {
       if (!isReady) {
@@ -169,6 +187,7 @@ export function useWebSocket() {
     error,
     sendAudio,
     sendText,
+    sendImage,
     isConnected: wsClient.isConnected(),
   };
 }

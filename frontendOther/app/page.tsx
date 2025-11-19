@@ -118,11 +118,10 @@ export default function AgoraPage() {
             </div>
             <div className="flex items-center gap-3">
               <span
-                className={`text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full ${
-                  isConnected
+                className={`text-xs font-semibold uppercase tracking-wider px-3 py-1 rounded-full ${isConnected
                     ? 'bg-green-500/10 text-green-400 border border-green-500/30'
                     : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/30'
-                }`}
+                  }`}
               >
                 {isConnected ? '● Ready' : '○ Connecting'}
               </span>
@@ -143,13 +142,13 @@ export default function AgoraPage() {
 
         {/* Main content area */}
         <div className="flex-1 flex overflow-hidden min-h-0">
-          {/* Whiteboard (now blackboard) */}
+          {/* Blackboard (before Whiteboard) */}
           <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-zinc-900">
             <WhiteboardPane ref={whiteboardRef} />
           </div>
 
-          {/* Conversation */}
-          <div className="w-[600px] flex flex-col border-l border-zinc-800 flex-shrink-0 bg-black">
+          {/* Conversation - Responsive width */}
+          <div className="w-full sm:w-[400px] md:w-[450px] lg:w-[500px] xl:w-[600px] flex flex-col border-l border-zinc-800 flex-shrink-0 bg-black">
             <TranscriptPanel messages={messages} isLoading={isLoading} />
           </div>
         </div>

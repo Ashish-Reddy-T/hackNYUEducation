@@ -1,7 +1,16 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSessionStore } from '@/lib/store/session';
+import { useMaterialsStore } from '@/lib/store/materials';
+import {
+  uploadMaterial,
+  pollJobStatus,
+  listMaterials,
+  validateFile,
+  formatFileSize,
+  getFileIcon,
+} from '@/lib/services/materials-api';
 
 interface UploadPanelProps {
   onUploadStart?: () => void;
@@ -14,79 +23,108 @@ export function UploadPanel({
 }: UploadPanelProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const { addMaterial, userId, currentTopic } = useSessionStore();
+  const { userId, currentTopic } = useSessionStore();
+  const {
+    materials,
+    uploadingFiles,
+    addMaterial,
+    updateMaterial,
+    removeMaterial,
+    addUploadingFile,
+    updateUploadProgress,
+    removeUploadingFile,
+    setMaterials,
+  } = useMaterialsStore();
 
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+  // Load materials on mount
+  useEffect(() => {
+    loadMaterials();
+  }, [userId, currentTopic]);
+
+  const loadMaterials = async () => {
+    try {
+      const mats = await listMaterials(userId, currentTopic);
+      setMaterials(mats);
+    } catch (err) {
+      console.error('[Materials] Failed to load:', err);
+    }
+  };
 
   const uploadFile = async (file: File) => {
     if (!file) return;
 
-    const allowedTypes = [
-      'application/pdf',
-      'text/plain',
-      'image/png',
-      'image/jpeg',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
-      setError('Unsupported file type. Please upload PDF, TXT, or images.');
+    // Validate file
+    const validation = validateFile(file);
+    if (!validation.valid) {
+      setError(validation.error || 'Invalid file');
       return;
     }
 
-    setIsUploading(true);
-    setUploadProgress(0);
+    const uploadId = `upload-${Date.now()}`;
     setError(null);
     onUploadStart?.();
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
+      // Add to uploading files
+      addUploadingFile(uploadId, file.name);
 
-      formData.append('user_id', userId);
-      formData.append('course_id', currentTopic);
-
-      const xhr = new XMLHttpRequest();
-
-      xhr.upload.addEventListener('progress', (e) => {
-        if (e.lengthComputable) {
-          const percentComplete = (e.loaded / e.total) * 100;
-          setUploadProgress(percentComplete);
+      // Upload with progress tracking
+      const response = await uploadMaterial(
+        file,
+        userId,
+        currentTopic,
+        undefined,
+        (progress) => {
+          updateUploadProgress(uploadId, progress);
         }
+      );
+
+      console.log('[Materials] Upload started:', response.job_id);
+
+      // Remove from uploading files
+      removeUploadingFile(uploadId);
+
+      // Add to materials with processing status
+      addMaterial({
+        job_id: response.job_id,
+        filename: file.name,
+        status: 'processing',
+        progress: 0,
+        message: response.message,
+        user_id: userId,
+        course_id: currentTopic,
       });
 
-      xhr.addEventListener('load', () => {
-        if (xhr.status === 200) {
-          console.log('[Agora] File uploaded successfully');
-          addMaterial(file.name, file.type);
-          setUploadProgress(100);
+      // Poll for completion
+      pollJobStatus(
+        response.job_id,
+        (status) => {
+          updateMaterial(response.job_id, {
+            status: status.status,
+            progress: status.progress,
+            message: status.message,
+          });
+        },
+        1000,
+        60
+      )
+        .then((finalStatus) => {
+          console.log('[Materials] Processing complete:', finalStatus.job_id);
           onUploadComplete?.({ name: file.name, type: file.type });
-
-          // Reset after brief delay
-          setTimeout(() => {
-            setIsUploading(false);
-            setUploadProgress(0);
-          }, 1000);
-        } else {
-          setError('Upload failed. Please try again.');
-          setIsUploading(false);
-        }
-      });
-
-      xhr.addEventListener('error', () => {
-        setError('Upload error. Please check your connection.');
-        setIsUploading(false);
-      });
-
-      xhr.open('POST', `${apiUrl}/api/materials/upload`);
-      xhr.send(formData);
+        })
+        .catch((err) => {
+          console.error('[Materials] Processing failed:', err);
+          updateMaterial(response.job_id, {
+            status: 'failed',
+            message: err.message || 'Processing failed',
+          });
+        });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Upload failed';
       setError(message);
-      setIsUploading(false);
+      removeUploadingFile(uploadId);
+      console.error('[Materials] Upload error:', err);
     }
   };
 
@@ -120,28 +158,43 @@ export function UploadPanel({
     }
   };
 
+  const isUploading = uploadingFiles.size > 0;
+
   return (
-    <div className="flex flex-col h-full bg-secondary">
-      <div className="flex-shrink-0 px-6 py-4 border-b border-secondary-dark">
-        <h3 className="text-lg font-bold text-primary">Materials</h3>
-        <p className="text-xs text-primary-light mt-1">
-          Upload PDFs, notes, or images to study
-        </p>
+    <div className="flex flex-col h-full bg-black">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-zinc-800">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-bold text-white">Materials</h3>
+            <p className="text-xs text-zinc-500 mt-0.5">
+              {materials.length} file{materials.length !== 1 ? 's' : ''} uploaded
+            </p>
+          </div>
+          <button
+            onClick={loadMaterials}
+            className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+            title="Refresh"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-        className={`flex-1 mx-4 my-6 rounded-lg border-2 border-dashed transition-all cursor-pointer
-          flex flex-col items-center justify-center
+        onClick={() => !isUploading && fileInputRef.current?.click()}
+        className={`flex-shrink-0 mx-4 mt-4 rounded-lg border-2 border-dashed transition-all cursor-pointer
+          flex flex-col items-center justify-center p-8
           ${
             isDragging
-              ? 'border-accent bg-accent bg-opacity-5'
-              : 'border-secondary-dark hover:border-primary hover:bg-secondary-dark'
+              ? 'border-zinc-500 bg-zinc-900'
+              : 'border-zinc-700 hover:border-zinc-600 hover:bg-zinc-900'
           }
-          ${isUploading ? 'opacity-50' : ''}
+          ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}
         `}
       >
         <input
@@ -150,12 +203,12 @@ export function UploadPanel({
           onChange={handleFileSelect}
           disabled={isUploading}
           className="hidden"
-          accept=".pdf,.txt,.png,.jpg,.jpeg,.docx"
+          accept=".pdf,.txt,.png,.jpg,.jpeg,.docx,.pptx"
         />
 
         <div className="text-center">
           <svg
-            className="w-12 h-12 mx-auto mb-3 text-primary-light"
+            className="w-10 h-10 mx-auto mb-2 text-zinc-500"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -164,88 +217,144 @@ export function UploadPanel({
               strokeLinecap="round"
               strokeLinejoin="round"
               strokeWidth={1.5}
-              d="M12 4v16m8-8H4"
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
             />
           </svg>
-          <p className="text-sm font-semibold text-primary">
-            {isUploading ? 'Uploading...' : 'Drag files here or click'}
+          <p className="text-sm font-medium text-white">
+            {isUploading ? 'Uploading...' : 'Drop files or click to upload'}
           </p>
-          <p className="text-xs text-primary-light mt-1">
-            PDF, TXT, PNG, JPG, DOCX
+          <p className="text-xs text-zinc-500 mt-1">
+            PDF, DOCX, PPTX, TXT, Images • Max 50MB
           </p>
         </div>
-
-        {isUploading && uploadProgress > 0 && (
-          <div className="absolute bottom-4 left-4 right-4 bg-secondary-dark rounded-full overflow-hidden h-2">
-            <div
-              className="bg-accent h-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
-            />
-          </div>
-        )}
       </div>
 
-      {error && (
-        <div className="mx-4 mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-700">{error}</p>
+      {/* Uploading files */}
+      {uploadingFiles.size > 0 && (
+        <div className="flex-shrink-0 px-4 pt-4">
+          {Array.from(uploadingFiles.entries()).map(([id, file]) => (
+            <div key={id} className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-zinc-400 truncate">{file.filename}</span>
+                <span className="text-xs text-zinc-500">{Math.round(file.progress)}%</span>
+              </div>
+              <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${file.progress}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
-      <div className="flex-shrink-0 px-6 pb-6 border-t border-secondary-dark max-h-48 overflow-y-auto">
-        <p className="text-xs font-semibold text-primary-light uppercase tracking-wide mb-3">
-          Recent Materials
-        </p>
-        <div className="space-y-2">
-          <MaterialsList />
+      {error && (
+        <div className="mx-4 mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+          <p className="text-xs text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Materials list */}
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <div className="mt-4">
+          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-3">
+            Your Materials
+          </p>
+          {materials.length === 0 ? (
+            <p className="text-xs text-zinc-500 italic text-center py-8">
+              No materials uploaded yet
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {materials.map((material) => (
+                <MaterialItem
+                  key={material.job_id}
+                  material={material}
+                  onRemove={() => removeMaterial(material.job_id)}
+                />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function MaterialsList() {
-  const { uploadedMaterials } = useSessionStore();
+function MaterialItem({
+  material,
+  onRemove,
+}: {
+  material: any;
+  onRemove: () => void;
+}) {
+  const getStatusColor = () => {
+    switch (material.status) {
+      case 'completed':
+        return 'text-green-400';
+      case 'failed':
+        return 'text-red-400';
+      case 'processing':
+        return 'text-yellow-400';
+      default:
+        return 'text-zinc-400';
+    }
+  };
 
-  if (uploadedMaterials.length === 0) {
-    return (
-      <p className="text-xs text-primary-light italic">
-        No materials uploaded yet
-      </p>
-    );
-  }
+  const getStatusIcon = () => {
+    switch (material.status) {
+      case 'completed':
+        return '✓';
+      case 'failed':
+        return '✗';
+      case 'processing':
+        return '⟳';
+      default:
+        return '•';
+    }
+  };
 
   return (
-    <>
-      {uploadedMaterials.map((material) => (
-        <div
-          key={material.id}
-          className="flex items-center justify-between p-2 bg-secondary-dark rounded hover:bg-primary hover:bg-opacity-5 transition-colors"
-        >
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <FileIcon type={material.type} />
-            <span className="text-xs text-primary truncate font-medium">
-              {material.name}
-            </span>
+    <div className="p-3 bg-zinc-900 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-start gap-2 flex-1 min-w-0">
+          <span className="text-lg mt-0.5">{getFileIcon(material.filename)}</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-white truncate font-medium">
+              {material.filename}
+            </p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-xs font-medium ${getStatusColor()}`}>
+                {getStatusIcon()} {material.status}
+              </span>
+              {material.status === 'processing' && (
+                <span className="text-xs text-zinc-500">{material.progress}%</span>
+              )}
+            </div>
+            {material.message && material.status !== 'completed' && (
+              <p className="text-xs text-zinc-500 mt-1 truncate">{material.message}</p>
+            )}
           </div>
-          <button
-            onClick={() => {}}
-            className="text-xs text-primary-light hover:text-accent transition-colors"
-            title="Remove material"
-          >
-            ✕
-          </button>
         </div>
-      ))}
-    </>
+        <button
+          onClick={onRemove}
+          className="p-1 text-zinc-500 hover:text-red-400 transition-colors"
+          title="Remove"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      {material.status === 'processing' && material.progress > 0 && (
+        <div className="mt-2 h-1 bg-zinc-800 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-yellow-500 transition-all duration-300"
+            style={{ width: `${material.progress}%` }}
+          />
+        </div>
+      )}
+    </div>
   );
-}
-
-function FileIcon({ type }: { type: string }) {
-  if (type === 'application/pdf') {
-    return <span className="text-red-500 font-bold text-sm">PDF</span>;
-  }
-  if (type.startsWith('image/')) {
-    return <span className="text-blue-500 font-bold text-sm">IMG</span>;
-  }
-  return <span className="text-gray-500 font-bold text-sm">FILE</span>;
 }
